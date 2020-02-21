@@ -1,0 +1,98 @@
+<yt-player>
+	<div class="yt-player { isPlayerOn ? 'on' : 'off'} { props.player.inFocus ? 'infocus' : '' }">
+		<!-- <pre>{ JSON.stringify(props.player) }</pre> -->
+		<input id="iid-{ playerId }" type="text" placeholder="YT link" value={ ytId }> <button onclick={ load }>load</button>
+		<div id="pid-{ playerId }">
+			<iframe id="iframeId-{ props.player.id }" width={ width } height={ height } src="https://www.youtube.com/embed/{ ytId }?modestbranding=1&playsinline=0&showinfo=0&enablejsapi=1&origin=https%3A%2F%2Fintercoin.org&widgetid=1" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+		</div>
+		<button class="size-btn width-btn more" onclick={ lessWidth }>&#9664;</button>
+		<button class="size-btn width-btn less" onclick={ moreWidth }>&#9654;</button>
+
+		<button class="close-btn" onclick={ closePlayer }>X</button>
+
+		<button class="size-btn height-btn more" onclick={ moreHeight }>&#9650;</button>
+		<button class="size-btn height-btn less" onclick={ lessHeight }>&#9660;</button>
+
+		<div class="player-id">ID: { props.player ? props.player.id : "n/a" }</div>
+	</div>
+
+	<script>
+		export default {
+			playerId: 0,
+			ytId: "",
+			isPlayerOn: false,
+			width: 500,
+			height: 300,
+			state: {},
+
+			load(e) {
+				this.ytId = document.getElementById(`iid-${this.playerId}`).value
+				this.props.player.url = this.ytId
+				this.update()
+			},
+
+			moreWidth() {
+				if(this.width < 1000) this.width = this.width + 100
+				this.update()
+			},
+
+			lessWidth() {
+				if(this.width > 100) this.width = this.width - 100
+				this.update()
+			},
+
+			moreHeight() {
+				if(this.height < 1000) this.height = this.height + 100
+				this.update()
+			},
+
+			lessHeight() {
+				if(this.height > 100) this.height = this.height - 100
+				this.update()
+			},
+
+			closePlayer(e) {
+				e.preventDefault()
+
+				let areyousure = confirm("Are you sure?")
+				if (!areyousure) return
+
+				this.isPlayerOn = false
+				this.props.player.onClose()
+
+				this.update()
+			},
+
+			onUpdated() {
+				console.log('updating maybe');
+				
+			},
+			
+			onMounted() {
+				
+				function displayMessage (evt) {
+					console.log(evt.data)
+				}
+
+				if (window.addEventListener) {
+					// For standards-compliant web browsers
+					window.addEventListener("message", displayMessage, false);
+					console.log('adding message listener');
+				}
+				else {
+					window.attachEvent("onmessage", displayMessage);
+					console.log('adding onmessage listener');
+				}
+
+				this.playerId = (+(new Date()) + Math.random())
+
+				if(this.props && this.props.player) {
+					this.ytId = this.props.player.url || ""
+					this.isPlayerOn = this.props.player.active || false
+				}
+				
+				this.update()
+			}			
+		}
+	</script>
+</yt-player>

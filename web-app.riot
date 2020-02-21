@@ -1,0 +1,268 @@
+<web-app>
+	<div class="web-app">
+		<div class="container">			
+			<h1 class="title">大家 &Uuml;:DJ <span class="menu-toggle" onclick={ toggleMenu }>&#9776;</span></h1>
+
+			<div class="menu { state.isMenuOpen ? 'open' : 'hide' }">
+				<fieldset>
+					<legend>New Player</legend>
+					<button onclick={ addPlayer }>Add Player</button>
+					<!-- <button onclick={ setFocus }>Set Focus</button> -->
+				</fieldset>
+
+				<fieldset>
+					<legend>Presets { state.presets.length }</legend>
+					<select onchange={ changePreset }>
+						<option value="">-</option>
+						<option each={ preset in state.presets } value={ preset[0] }>{ preset[1] }</option>
+					</select>
+				</fieldset>
+
+				<!--
+				<fieldset>
+					<legend>Players ({ state.players.filter((e) => e.active).length })</legend>
+					<div style="display:{ state.players.filter((e) => e.active).length > 0 ? 'block' : 'none'}">In focus: #1 (Change via: Ctrl+[0-{ state.players.filter((e) => e.active).length }])</div>
+				</fieldset>
+				-->
+
+				<fieldset>
+					<legend>Export</legend>
+					<button onclick={ exportUrl }>Export Players</button>
+					<span class="export-url {!state.exportUrl ? 'hide' : ''}"><a href={ state.exportUrl }>Link to exported players</a></span>
+				</fieldset>
+			</div>
+
+			<div class="content">
+				<ul id="player-list">
+					
+				</ul>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		export default {
+			state: {
+				isMenuOpen: true,
+				players: [],
+				exportUrl: "",
+				presets: [
+					["psy",			"Psy Trance",			"Psy Trance loops melody etc",		"F615ube_zjo,83dqv4rWEPM,OykfGytl08Q"],
+					["dnb",			"Drum & Bass",			"Drum & Bass loops melody etc",		"F615ube_zjo,0VkNeXkO2gY,yG9ZX1FS20A"]
+				]
+			},
+
+			getUrlVars() {
+				let vars = {};
+				
+    			let parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+        			vars[key] = value;
+				});
+				
+    			return vars;
+			},
+
+			getUrlVar(urlVar) {
+				return this.getUrlVars() && this.getUrlVars()[urlVar] ? 
+						this.getUrlVars()[urlVar] : []
+			},
+
+			convertPresetToObj(presetArr) {
+				return {
+					id: presetArr[0],
+					title: presetArr[1],
+					description: presetArr[2],
+					urls: presetArr[3].split(",")
+				}
+			},
+
+			findPresetById(id) {
+				for(let i=0; i<this.state.presets.length; i++) {
+					let preset = this.convertPresetToObj(this.state.presets[i])
+					if(preset && preset.id == id) return preset
+				} 
+			},
+
+			exportUrl(e) {
+				e.preventDefault()
+
+				let activeUrls = this.state.players.filter((p) => p.active).map((p) => p.url)
+
+				if(activeUrls && activeUrls.length) {
+					this.state.exportUrl = "/?playerIds=" + activeUrls.join(",")
+					this.update()
+				}
+			},
+
+			changePreset(e) {
+				e.preventDefault()
+
+				let areyousure = confirm("Are you sure?")
+
+				if (!areyousure) return
+
+				var $playerList = document.getElementById( "player-list" )
+				$playerList.innerHTML = ""
+				this.state.players = []
+				this.update()
+
+				let options = e && e.target && e.target.children ? e.target.children : []
+				let selOp = this.getSelectedOption(options)
+
+				if (selOp && selOp.value) {
+					let preset = this.findPresetById(selOp.value)					
+
+					for(let i=0; i<preset.urls.length; i++) {
+						let presetLink = preset.urls[i]
+						this.addPlayer(null, presetLink)
+					}
+				} else {
+					// TODO delete all players
+				}
+			},
+
+			getSelectedOption(options) {
+				for(let i=0; i<options.length; i++) {
+					if(options[i].selected) return options[i]
+				}
+			},
+
+			toggleMenu() {
+				console.log("AAA")
+				this.state.isMenuOpen = !this.state.isMenuOpen
+				this.update()
+			},
+
+			setFocus() {
+				console.log('setting focus');
+				//document.getElementById("iframeId-0").contentWindow.document.body.focus()
+				let frame = document.getElementById("iframeId-0").contentWindow
+				frame.postMessage("moo", "http://localhost:8000")
+
+				//document.getElementById("iframeId-0").contentWindow.document.body.focus()
+			},
+
+			addPlayer(e, url) {
+				if(e) e.preventDefault()
+
+				let player = {
+					id: this.state.players.length,
+					url: url || "",
+					active: true,
+					mounted: false,
+					inFocus: false,
+					setFocus: (on) => {
+						player.inFocus = false
+						if (on) player.inFocus = true
+
+						this.update()
+					},
+					onClose: () => {
+						player.active = false
+						this.update()
+					}
+				}
+
+				this.state.players.push(player)
+
+				this.update()
+				this.addPlayerTag(this.state.players[this.state.players.length - 1])
+			},
+
+			addPlayerTag(player) {
+				if (player && !player.mounted) {
+					var $playerList = document.getElementById( "player-list" )
+					var $li = document.createElement("li")
+					$playerList.appendChild($li)
+
+					var $tag = document.createElement("yt-player")
+					$li.appendChild($tag)
+
+					riot.mount($tag, {player}, "yt-player")
+					player.mounted = true
+				}
+			},
+
+			keyPress(e) {
+				var evtobj = window.event? event : e
+				if (evtobj.keyCode == 49 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(1)
+				if (evtobj.keyCode == 50 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(2)
+				if (evtobj.keyCode == 51 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(3)
+				if (evtobj.keyCode == 52 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(4)
+				if (evtobj.keyCode == 53 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(5)
+				if (evtobj.keyCode == 54 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(6)
+				if (evtobj.keyCode == 55 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(7)
+				if (evtobj.keyCode == 56 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(8)
+				if (evtobj.keyCode == 57 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(9)
+				if (evtobj.keyCode == 48 && evtobj.ctrlKey && evtobj.altKey) this.focusPlayer(10)
+			},
+
+			focusPlayer(playerNum) {
+				console.log("heyyy")
+				// un-focus all
+				this.state.players.map((p) => p.setFocus(false))
+
+				let activeCnt = 0
+				for(let i=0; i < this.state.players.length; i++) {
+					let player = this.state.players[i]
+					player.inFocus = false
+					if(player.active) activeCnt++
+					if(playerNum == activeCnt) player.inFocus = true
+				}
+
+				// focus the one
+				/*
+				let activeCnt = 0
+				for(let i=0; i<this.state.players.length; i++) {
+					let player = this.state.players[i]
+					if(player.active) activeCnt++
+					if(activeCnt == playerNum) player.setFocus(true)
+				}
+				*/
+
+				this.update()
+
+				
+
+				console.log(this.state.players)
+				
+			},
+
+			onMounted() {
+				let playerIds = this.getUrlVar("playerIds")
+
+				if (playerIds && playerIds.length) {
+					let confirmLoadPlayers = confirm("Would you like to load the players?")
+					if (confirmLoadPlayers)	playerIds.split(",").map((pid) => this.addPlayer(null, pid))
+				}
+
+				document.body.style.backgroundImage = "url(https://i.ytimg.com/vi/k8Q-cNEfIf4/maxresdefault.jpg)"
+
+
+  				$.get("https://sheets.googleapis.com/v4/spreadsheets/1DMCo2EoM6EQVKjiM_GDKj4tMBWMHE3cHkr7jvacmY4k/values/Sheet1!A1:D500?key=AIzaSyBLySbKUYIzPNpscruuGrSpnA3VeZ1sdvk", (data) => {
+					  console.log('moo', data);
+					  if(data && data.values && data.values.length) {
+						  this.state.presets = data.values
+						  
+						  this.update()
+					  }
+				})
+
+				document.onkeydown = this.keyPress;	
+
+
+
+
+
+
+
+
+
+
+
+
+
+			}
+		}
+	</script>
+</web-app>
